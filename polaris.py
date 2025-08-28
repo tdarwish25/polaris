@@ -477,12 +477,19 @@ def execute_wl_on_dev(_wl, _dl, _wspec, _dspec, wlmapspec, _WLG,
                     'fused_with_op' : 'NA' if fwd_op.fused_with_op is None else fwd_op.fused_with_op
                     }
             val.update(fwd_op.perf_stats)
-            val_in_bpe = val['inBytes'] // val['inElems']
-            if (not fwd_op.removed_in_optimization) and val_in_bpe != get_bpe(get_sim_dtype(fwd_op.precision)):
+
+            # Add counts required by summarizer (and used by the model as well)
+            # inParamCount comes from params_elems; inActCount/outActCount mirror inElems/outElems
+            val['inParamCount'] = int(getattr(fwd_op, 'params_elems', 0))
+            val['inActCount']   = int(val.get('inElems', 0))
+            val['outActCount']  = int(val.get('outElems', 0))
+
+            val_in_bpe = val['inBytes'] // val['inElems'] if val.get('inElems', 0) else 0
+            if (not fwd_op.removed_in_optimization) and val.get('inElems', 0) and val_in_bpe != get_bpe(get_sim_dtype(fwd_op.precision)):
                 WARNING("device={} workload={} instance={} op={} opclass={} input bpe mismatch: bytes/elems {}  != operator precision {} bpe {}",
                                 devname, wlname, wlins_name, fwd_op.name, fwd_op.opclass_str, val_in_bpe, fwd_op.precision, get_bpe(get_sim_dtype(fwd_op.precision)))
-            val_out_bpe = val['outBytes'] // val['outElems']
-            if (not fwd_op.removed_in_optimization) and val_out_bpe != get_bpe(get_sim_dtype(fwd_op.precision)):
+            val_out_bpe = val['outBytes'] // val['outElems'] if val.get('outElems', 0) else 0
+            if (not fwd_op.removed_in_optimization) and val.get('outElems', 0) and val_out_bpe != get_bpe(get_sim_dtype(fwd_op.precision)):
                 WARNING("device={} workload={} instance={} op={} opclass={} output bpe mismatch: bytes/elems {}  != operator precision {} bpe {}",
                                 devname, wlname, wlins_name, fwd_op.name, fwd_op.opclass_str, val_out_bpe, fwd_op.precision, get_bpe(get_sim_dtype(fwd_op.precision)))
             TOT_INSTR_COUNT = sum([v for k,v in fwd_op.perf_stats['instrs'].items()])
@@ -504,13 +511,13 @@ def execute_wl_on_dev(_wl, _dl, _wspec, _dspec, wlmapspec, _WLG,
             msecs  = cycles / dev_freq_MHz / 1e3
 
             if fwd_op.removed_in_optimization or fwd_op.fused_in_optimization:
-                rsrc_bnck = 'NA'
+                rsrc_bnck = 'na'   # always a string
                 cycles    = 0
                 msecs     = 0.0
             elif compute_cycles >= mem_cycles:
-                rsrc_bnck = 'COMP'.lower()
+                rsrc_bnck = 'comp'
             else:
-                rsrc_bnck = 'MEM'.lower()
+                rsrc_bnck = 'mem'
             val.update({
                 'rsrc_bnck' : rsrc_bnck,
                 'cycles'    : cycles,
@@ -523,6 +530,7 @@ def execute_wl_on_dev(_wl, _dl, _wspec, _dspec, wlmapspec, _WLG,
                 del opval[tmp]
             model_rows.append(opval)
 
+        """
         model_dict = {
             'devname': devname,
             'freq_MHz': dev_freq_MHz,
@@ -532,6 +540,17 @@ def execute_wl_on_dev(_wl, _dl, _wspec, _dspec, wlmapspec, _WLG,
             'batch': wlcfg['bs'],
             'operatorstats': model_rows
         }
+        """
+        model_dict = {
+            'devname': devname,
+            'freq_MHz': dev_freq_MHz,
+            'wlgroup': wlgroup,
+            'wlname': wlname,
+            'wlinstance': wlins_name,
+            'batch': wlcfg['bs'],
+            'operatorstats': wlgraph.get_operatorstats()
+        }
+        
         model = TTSimHLWlDevRunPerfStats(**model_dict)
         statF_parts  = [f"{devname}"]
         statF_parts += [] if devfreq is None else [f"f{devfreq}"]
@@ -560,7 +579,6 @@ def execute_wl_on_dev(_wl, _dl, _wspec, _dspec, wlmapspec, _WLG,
         INFO('ran job #{} instance={} device={} frequency={}', exp_no, wlins_name, devname, devfreq)
 
     return num_failures, _summary_stats
-
 
 def polaris(args: argparse.Namespace | runcfgmodel.PolarisRunConfig) -> int:
     """Main entry point for the Polaris simulation."""
