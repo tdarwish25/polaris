@@ -57,4 +57,11 @@ workloads:
       vit_b16_224 : { img_height: 224, img_width: 224, img_channels: 3, bs: 1, patch_size: 16, embed_dim: 768, depth: 12, compute_pipe: matrix }
       vit_b32_384 : { img_height: 384, img_width: 384, img_channels: 3, bs: 1, patch_size: 32, embed_dim: 768, depth: 12, compute_pipe: matrix }
       vit_l16_224 : { img_height: 224, img_width: 224, img_channels: 3, bs: 1, patch_size: 16, embed_dim: 1024, depth: 24, compute_pipe: matrix }
-
+  - api: TTSIM
+    name: HondaViT
+    basedir: workloads/ViT
+    module : VIT@HondaViT_v1.py
+    instances:
+      vit_b16_224 : { img_height: 224, img_width: 224, img_channels: 3, bs: 1, patch_size: 16, embed_dim: 768, depth: 12, compute_pipe: matrix }
+      vit_b32_384 : { img_height: 384, img_width: 384, img_channels: 3, bs: 1, patch_size: 32, embed_dim: 768, depth: 12, compute_pipe: matrix }
+      vit_l16_224 : { img_height: 224, img_width: 224, img_channels: 3, bs: 1, patch_size: 16, embed_dim: 1024, depth: 24, compute_pipe: matrix }
