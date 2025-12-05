@@ -175,34 +175,46 @@ class Tensor(SimTensor):
         opname = self.name + '.transpose_op'
         optype = 'Transpose'
         perm   = [i for i in range(self.rank())]
-        perm[-2], perm[-1] = perm[-1], perm[-2] #swap last 2 dims
+        perm[-2], perm[-1] = perm[-1], perm[-2]  # swap last 2 dims
         opinfo = {'name': opname, 'optype': optype, 'inList': [self.name], 'attrs': {'perm': perm}}
         outT   = Tensor(name=opname + '.out', op_out=[opname], device=self.device)
         opinfo['outList'] = [outT.name]
 
         opobj  = SimOp(opinfo)
-        pstats = opobj.get_perf_counts([self], [outT])
+        opobj.get_perf_counts([self], [outT])
 
-        self.device.add_op(opobj)
+        device = self.device
+        if device is None:
+            raise AssertionError("Tensor has no associated device")
+        device.add_op(opobj)
 
         return outT
 
     def view(self, *args):
         npdata = np.array(args, dtype=np.int64)
         opname = self.name + '.view_op'
-        shapeT = Tensor(name=opname + '.shapeT',device=self.device, data=npdata,
-                        shape=list(npdata.shape), dtype=DataType.INT64, op_in=[opname])
+        shapeT = Tensor(
+            name=opname + '.shapeT',
+            device=self.device,
+            data=npdata,
+            shape=list(npdata.shape),
+            dtype=DataType.INT64,
+            op_in=[opname],
+        )
         optype = 'Reshape'
         opinfo = {'name': opname, 'optype': optype, 'inList': [self.name, shapeT.name]}
         outT   = Tensor(name=opname + '.out', op_out=[opname], device=self.device)
         opinfo['outList'] = [outT.name]
 
         opobj  = SimOp(opinfo)
-        pstats = opobj.get_perf_counts([self, shapeT], [outT])
+        opobj.get_perf_counts([self, shapeT], [outT])
 
-        self.device.add_op(opobj)
+        device = self.device
+        if device is None:
+            raise AssertionError("Tensor has no associated device")
+        device.add_op(opobj)
 
-        return outT
+        return outT   
 
     def unsqueeze(self, dim: int):
             """Unsqueeze the tensor at the specified dimension."""
